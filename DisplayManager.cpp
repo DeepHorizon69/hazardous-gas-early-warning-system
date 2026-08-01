@@ -6,16 +6,14 @@ static const char* TAG = "DisplayManager";
 
 DisplayManager::DisplayManager() :
     m_display(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, &Wire, -1),
-    m_currentState(Config::SystemState::BOOT),
-    m_lastState(Config::SystemState::BOOT),
     m_lastDraw(0),
     m_pageTimer(0),
     m_currentPage(Page::MONITOR),
+    m_dirty(true),
     m_initialized(false),
     m_lastI2CCheck(0)
 {
-    m_cache[0] = '\0';
-    m_buffer[0] = '\0';
+    m_lastSnapshot = {};
 }
 
 void DisplayManager::begin() {
@@ -23,8 +21,8 @@ void DisplayManager::begin() {
         return;
     }
     Wire.begin(Config::PIN_I2C_SDA, Config::PIN_I2C_SCL);
-    Wire.setClock(400000); // Set to fast I2C mode
-    
+    Wire.setClock(400000);
+
     m_initialized = m_display.begin(SSD1306_SWITCHCAPVCC, Config::OLED_ADDRESS);
     if (!m_initialized) {
         LOGE(TAG, "SSD1306 OLED initialization failed!");
@@ -42,7 +40,7 @@ void DisplayManager::invalidate() {
     if constexpr (!Config::OLED_ENABLED) {
         return;
     }
-    m_cache[0] = '\0';
+    m_dirty = true;
 }
 
 void DisplayManager::drawProgressBar(int x, int y, int w, int h, uint8_t progress) {
@@ -72,7 +70,7 @@ void DisplayManager::drawHeatingScreen(uint8_t progress, uint32_t remaining) {
     m_display.setTextSize(2);
     m_display.setCursor(10, 0);
     m_display.println("HEATING");
-    
+
     char timeStr[16];
     snprintf(timeStr, sizeof(timeStr), "%02u:%02u", min, sec);
     m_display.setCursor(20, 25);
@@ -85,7 +83,7 @@ void DisplayManager::drawHeatingScreen(uint8_t progress, uint32_t remaining) {
 void DisplayManager::drawMonitorScreen(uint16_t mq2, uint16_t mq4, uint16_t mq135, Config::SystemState state) {
     m_display.clearDisplay();
     m_display.setTextSize(1);
-    
+
     m_display.setCursor(0, 0);
     m_display.printf("MQ2  : %u", mq2);
     m_display.setCursor(0, 16);
@@ -94,7 +92,7 @@ void DisplayManager::drawMonitorScreen(uint16_t mq2, uint16_t mq4, uint16_t mq13
     m_display.printf("MQ135: %u", mq135);
 
     m_display.drawLine(0, 48, 127, 48, SSD1306_WHITE);
-    
+
     m_display.setTextSize(2);
     m_display.setCursor(0, 52);
     m_display.println(Config::getStateText(state));
@@ -115,7 +113,7 @@ void DisplayManager::drawNetworkScreen(float temp, float hum, bool wifiOk, bool 
 
     m_display.setCursor(0, 36);
     m_display.printf("WiFi : %s", wifiOk ? "OK" : "LOST");
-    
+
     m_display.setCursor(0, 52);
     m_display.printf("MQTT : %s", mqttOk ? "OK" : "LOST");
     m_display.display();
@@ -169,7 +167,7 @@ void DisplayManager::recoverI2CBus() {
 }
 
 void DisplayManager::update(
-    Config::SystemState state, 
+    Config::SystemState state,
     uint16_t mq2, uint16_t mq4, uint16_t mq135,
     float temp, float hum,
     uint8_t heatProgress, uint32_t heatRemaining,
@@ -181,13 +179,11 @@ void DisplayManager::update(
     }
     uint32_t now = millis();
 
-    // Check display timing (500ms intervals)
     if (now - m_lastDraw < Config::OLED_INTERVAL_MS) {
         return;
     }
     m_lastDraw = now;
 
-    // Periodically verify I2C health
     if (now - m_lastI2CCheck >= 5000UL) {
         m_lastI2CCheck = now;
         if (!verifyI2CBus()) {
@@ -199,29 +195,22 @@ void DisplayManager::update(
 
     rotatePage(hasFault, state);
 
-    // Build unique display buffer representation for change check
-    if (state == Config::SystemState::BOOT) {
-        snprintf(m_buffer, sizeof(m_buffer), "BOOT");
-    } else if (state == Config::SystemState::HEATING) {
-        snprintf(m_buffer, sizeof(m_buffer), "HEAT_%u_%u", heatProgress, heatRemaining);
-    } else if (hasFault) {
-        snprintf(m_buffer, sizeof(m_buffer), "FAULT");
-    } else if (m_currentPage == Page::MONITOR) {
-        snprintf(m_buffer, sizeof(m_buffer), "MON_%u_%u_%u_%u", mq2, mq4, mq135, (uint8_t)state);
-    } else {
-        snprintf(m_buffer, sizeof(m_buffer), "NET_%.1f_%.1f_%d_%d", temp, hum, wifiOk, mqttOk);
-    }
+    DisplaySnapshot currentSnapshot = {
+        state, m_currentPage,
+        mq2, mq4, mq135,
+        temp, hum,
+        heatProgress, heatRemaining,
+        wifiOk, mqttOk,
+        hasFault
+    };
 
-    // Skip drawing if content matches cached values (flicker protection)
-    if (strcmp(m_buffer, m_cache) == 0) {
+    if (!m_dirty && currentSnapshot.equals(m_lastSnapshot)) {
         return;
     }
-    
-    // Cache next content representation
-    strncpy(m_cache, m_buffer, sizeof(m_cache) - 1);
-    m_cache[sizeof(m_cache) - 1] = '\0';
 
-    // Render screen
+    m_lastSnapshot = currentSnapshot;
+    m_dirty = false;
+
     if (state == Config::SystemState::BOOT) {
         drawBootScreen();
     } else if (state == Config::SystemState::HEATING) {

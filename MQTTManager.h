@@ -7,17 +7,14 @@
 
 class MQTTManager {
 public:
-    typedef std::function<void(const Config::DeviceConfig&)> ConfigCallback;
+    using ConfigCallback = void (*)(const Config::DeviceConfig&);
 
     MQTTManager();
     void begin(ConfigCallback callback);
-    
-    // Updates MQTT state machine and parses incoming commands
-    void update(bool wifiConnected);
 
+    void update(bool wifiConnected);
     bool isConnected();
 
-    // Publish methods
     void publishTelemetry(
         uint16_t mq2, uint16_t mq4, uint16_t mq135,
         float temp, float hum,
@@ -26,7 +23,7 @@ public:
         bool mq2Fault, bool mq4Fault, bool mq135Fault, bool dhtFault,
         uint8_t heatProgress, uint32_t heatRemaining
     );
-    
+
     void publishState(Config::SystemState state);
     void publishConfigAck(const Config::DeviceConfig& config);
 
@@ -38,7 +35,6 @@ private:
     WiFiClient m_wifiClient;
     PubSubClient m_mqttClient;
 
-    // Topics buffers
     char m_topicData[64];
     char m_topicState[64];
     char m_topicConfig[64];

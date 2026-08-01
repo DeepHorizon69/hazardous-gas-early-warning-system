@@ -6,16 +6,14 @@ class AlarmManager {
 public:
     AlarmManager();
     void begin();
-    
-    // Updates buzzer based on system state
+
     void update(Config::SystemState state, const Config::DeviceConfig& deviceConfig);
-    
-    // Silence alarms manually
     void silence();
 
 private:
     void buzzerOn();
     void buzzerOff();
+    void updatePulsedBuzzer(uint32_t onTimeMs, uint32_t offTimeMs);
     void updateWarningBuzzer();
     void updateFaultBuzzer();
 

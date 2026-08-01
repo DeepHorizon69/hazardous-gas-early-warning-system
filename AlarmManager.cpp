@@ -3,7 +3,8 @@
 
 static const char* TAG = "AlarmManager";
 
-AlarmManager::AlarmManager() : m_buzzerState(false), m_lastToggle(0), m_silenced(false) {}
+AlarmManager::AlarmManager()
+    : m_buzzerState(false), m_lastToggle(0), m_silenced(false) {}
 
 void AlarmManager::begin() {
     pinMode(Config::PIN_BUZZER, OUTPUT);
@@ -31,34 +32,25 @@ void AlarmManager::silence() {
     LOGW(TAG, "Alarm buzzer manually silenced");
 }
 
-void AlarmManager::updateWarningBuzzer() {
+void AlarmManager::updatePulsedBuzzer(uint32_t onTimeMs, uint32_t offTimeMs) {
     uint32_t now = millis();
-    if (!m_buzzerState) {
-        if (now - m_lastToggle >= 800) { // Off for 800ms
-            buzzerOn();
-            m_lastToggle = now;
-        }
-    } else {
-        if (now - m_lastToggle >= 200) { // On for 200ms
+    uint32_t interval = m_buzzerState ? onTimeMs : offTimeMs;
+    if (now - m_lastToggle >= interval) {
+        m_lastToggle = now;
+        if (m_buzzerState) {
             buzzerOff();
-            m_lastToggle = now;
+        } else {
+            buzzerOn();
         }
     }
 }
 
+void AlarmManager::updateWarningBuzzer() {
+    updatePulsedBuzzer(200, 800); // 200ms ON, 800ms OFF
+}
+
 void AlarmManager::updateFaultBuzzer() {
-    uint32_t now = millis();
-    if (!m_buzzerState) {
-        if (now - m_lastToggle >= 2500) { // Off for 2.5 seconds
-            buzzerOn();
-            m_lastToggle = now;
-        }
-    } else {
-        if (now - m_lastToggle >= 100) { // On for 100ms (short blip)
-            buzzerOff();
-            m_lastToggle = now;
-        }
-    }
+    updatePulsedBuzzer(100, 2500); // 100ms ON, 2500ms OFF
 }
 
 void AlarmManager::update(Config::SystemState state, const Config::DeviceConfig& deviceConfig) {
@@ -73,25 +65,24 @@ void AlarmManager::update(Config::SystemState state, const Config::DeviceConfig&
         case Config::SystemState::SAFE:
         case Config::SystemState::NORMAL:
             buzzerOff();
-            m_silenced = false; // Reset silencing lock when state is safe
+            m_silenced = false;
             break;
 
         case Config::SystemState::MODERATE:
-            // Slow warning blip
-            updateFaultBuzzer(); 
+            updateFaultBuzzer();
             break;
 
         case Config::SystemState::WARNING:
-            updateWarningBuzzer(); // Pulsed warning
+            updateWarningBuzzer();
             break;
 
         case Config::SystemState::DANGER:
         case Config::SystemState::CRITICAL:
-            buzzerOn(); // Solid Danger/Critical alert
+            buzzerOn();
             break;
 
         case Config::SystemState::FAULT:
-            updateFaultBuzzer(); // Intermittent Fault Blip
+            updateFaultBuzzer();
             break;
 
         default:

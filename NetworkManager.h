@@ -6,10 +6,8 @@ class IoTNetworkManager {
 public:
     IoTNetworkManager();
     void begin();
-    
-    // Maintain connection in a non-blocking way
+
     void update();
-    
     bool isConnected() const;
 
 private:

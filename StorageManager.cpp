@@ -1,14 +1,11 @@
 #include "StorageManager.h"
-#include <Preferences.h>
 #include "Logger.h"
 
 static const char* TAG = "StorageManager";
-static Preferences prefs;
 
 StorageManager::StorageManager() {}
 
 void StorageManager::begin() {
-    // Preferences automatically handles init
 }
 
 void StorageManager::loadDefaultConfig(Config::DeviceConfig& deviceConfig) {
@@ -32,27 +29,27 @@ void StorageManager::loadDefaultConfig(Config::DeviceConfig& deviceConfig) {
 }
 
 void StorageManager::loadConfig(Config::DeviceConfig& deviceConfig) {
-    loadDefaultConfig(deviceConfig); // Fallback to defaults first
+    loadDefaultConfig(deviceConfig);
 
-    if (prefs.begin(Config::NVS_NAMESPACE, true)) {
-        deviceConfig.mq2Enabled = prefs.getBool("mq2_en", deviceConfig.mq2Enabled);
-        deviceConfig.mq2On = prefs.getInt("mq2_on", deviceConfig.mq2On);
-        deviceConfig.mq2Off = prefs.getInt("mq2_off", deviceConfig.mq2Off);
+    if (m_prefs.begin(Config::NVS_NAMESPACE, true)) {
+        deviceConfig.mq2Enabled = m_prefs.getBool("mq2_en", deviceConfig.mq2Enabled);
+        deviceConfig.mq2On = m_prefs.getInt("mq2_on", deviceConfig.mq2On);
+        deviceConfig.mq2Off = m_prefs.getInt("mq2_off", deviceConfig.mq2Off);
 
-        deviceConfig.mq4Enabled = prefs.getBool("mq4_en", deviceConfig.mq4Enabled);
-        deviceConfig.mq4On = prefs.getInt("mq4_on", deviceConfig.mq4On);
-        deviceConfig.mq4Off = prefs.getInt("mq4_off", deviceConfig.mq4Off);
+        deviceConfig.mq4Enabled = m_prefs.getBool("mq4_en", deviceConfig.mq4Enabled);
+        deviceConfig.mq4On = m_prefs.getInt("mq4_on", deviceConfig.mq4On);
+        deviceConfig.mq4Off = m_prefs.getInt("mq4_off", deviceConfig.mq4Off);
 
-        deviceConfig.mq135Enabled = prefs.getBool("mq135_en", deviceConfig.mq135Enabled);
-        deviceConfig.mq135On = prefs.getInt("mq135_on", deviceConfig.mq135On);
-        deviceConfig.mq135Off = prefs.getInt("mq135_off", deviceConfig.mq135Off);
+        deviceConfig.mq135Enabled = m_prefs.getBool("mq135_en", deviceConfig.mq135Enabled);
+        deviceConfig.mq135On = m_prefs.getInt("mq135_on", deviceConfig.mq135On);
+        deviceConfig.mq135Off = m_prefs.getInt("mq135_off", deviceConfig.mq135Off);
 
-        deviceConfig.dhtEnabled = prefs.getBool("dht_en", deviceConfig.dhtEnabled);
-        deviceConfig.tempWarn = prefs.getFloat("temp_warn", deviceConfig.tempWarn);
+        deviceConfig.dhtEnabled = m_prefs.getBool("dht_en", deviceConfig.dhtEnabled);
+        deviceConfig.tempWarn = m_prefs.getFloat("temp_warn", deviceConfig.tempWarn);
 
-        deviceConfig.buzzerEnabled = prefs.getBool("buzzer_en", deviceConfig.buzzerEnabled);
+        deviceConfig.buzzerEnabled = m_prefs.getBool("buzzer_en", deviceConfig.buzzerEnabled);
 
-        prefs.end();
+        m_prefs.end();
         LOGI(TAG, "Configuration loaded successfully from NVS");
     } else {
         LOGW(TAG, "Could not open NVS preferences, defaults used");
@@ -60,25 +57,25 @@ void StorageManager::loadConfig(Config::DeviceConfig& deviceConfig) {
 }
 
 void StorageManager::saveConfig(const Config::DeviceConfig& deviceConfig) {
-    if (prefs.begin(Config::NVS_NAMESPACE, false)) {
-        prefs.putBool("mq2_en", deviceConfig.mq2Enabled);
-        prefs.putInt("mq2_on", deviceConfig.mq2On);
-        prefs.putInt("mq2_off", deviceConfig.mq2Off);
+    if (m_prefs.begin(Config::NVS_NAMESPACE, false)) {
+        m_prefs.putBool("mq2_en", deviceConfig.mq2Enabled);
+        m_prefs.putInt("mq2_on", deviceConfig.mq2On);
+        m_prefs.putInt("mq2_off", deviceConfig.mq2Off);
 
-        prefs.putBool("mq4_en", deviceConfig.mq4Enabled);
-        prefs.putInt("mq4_on", deviceConfig.mq4On);
-        prefs.putInt("mq4_off", deviceConfig.mq4Off);
+        m_prefs.putBool("mq4_en", deviceConfig.mq4Enabled);
+        m_prefs.putInt("mq4_on", deviceConfig.mq4On);
+        m_prefs.putInt("mq4_off", deviceConfig.mq4Off);
 
-        prefs.putBool("mq135_en", deviceConfig.mq135Enabled);
-        prefs.putInt("mq135_on", deviceConfig.mq135On);
-        prefs.putInt("mq135_off", deviceConfig.mq135Off);
+        m_prefs.putBool("mq135_en", deviceConfig.mq135Enabled);
+        m_prefs.putInt("mq135_on", deviceConfig.mq135On);
+        m_prefs.putInt("mq135_off", deviceConfig.mq135Off);
 
-        prefs.putBool("dht_en", deviceConfig.dhtEnabled);
-        prefs.putFloat("temp_warn", deviceConfig.tempWarn);
+        m_prefs.putBool("dht_en", deviceConfig.dhtEnabled);
+        m_prefs.putFloat("temp_warn", deviceConfig.tempWarn);
 
-        prefs.putBool("buzzer_en", deviceConfig.buzzerEnabled);
+        m_prefs.putBool("buzzer_en", deviceConfig.buzzerEnabled);
 
-        prefs.end();
+        m_prefs.end();
         LOGI(TAG, "Configuration written successfully to NVS");
     } else {
         LOGE(TAG, "Failed to open NVS preferences for writing");

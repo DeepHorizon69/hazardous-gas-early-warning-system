@@ -4,44 +4,11 @@
 
 namespace Filters {
 
-    // Template Moving Average Filter
-    template <typename T, size_t N>
-    class MovingAverage {
-    public:
-        MovingAverage() { clear(); }
-
-        void clear() {
-            m_sum = 0;
-            m_index = 0;
-            m_count = 0;
-            for (size_t i = 0; i < N; ++i) {
-                m_buffer[i] = 0;
-            }
-        }
-
-        T update(T value) {
-            m_sum -= m_buffer[m_index];
-            m_buffer[m_index] = value;
-            m_sum += value;
-            m_index = (m_index + 1) % N;
-            if (m_count < N) {
-                m_count++;
-            }
-            return m_sum / m_count;
-        }
-
-    private:
-        T m_buffer[N];
-        uint32_t m_sum;
-        size_t m_index;
-        size_t m_count;
-    };
-
-    // First-Order Exponential Moving Average (EMA) Filter
-    // y[n] = Alpha * x[n] + (1 - Alpha) * y[n-1]
+    // First-Order Exponential Moving Average (EMA)
     class ExponentialMovingAverage {
     public:
-        ExponentialMovingAverage(float alpha) : m_alpha(alpha), m_initialized(false), m_value(0.0f) {}
+        explicit ExponentialMovingAverage(float alpha)
+            : m_alpha(alpha), m_initialized(false), m_value(0.0f) {}
 
         void clear() {
             m_initialized = false;
@@ -66,13 +33,11 @@ namespace Filters {
         float m_value;
     };
 
-    // Median Filter (Window size 3 or 5) for removing high-amplitude impulse spikes
+    // Median Filter for spike suppression
     template <typename T, size_t N>
     class MedianFilter {
     public:
-        MedianFilter() {
-            clear();
-        }
+        MedianFilter() { clear(); }
 
         void clear() {
             m_index = 0;
@@ -87,19 +52,20 @@ namespace Filters {
             m_index = (m_index + 1) % N;
             if (m_count < N) m_count++;
 
-            // Copy and sort buffer
             T sorted[N];
-            memcpy(sorted, m_buffer, m_count * sizeof(T));
-            
-            // Basic bubble sort for tiny windows (3 or 5 items)
             for (size_t i = 0; i < m_count; ++i) {
-                for (size_t j = i + 1; j < m_count; ++j) {
-                    if (sorted[i] > sorted[j]) {
-                        T temp = sorted[i];
-                        sorted[i] = sorted[j];
-                        sorted[j] = temp;
-                    }
+                sorted[i] = m_buffer[i];
+            }
+
+            // Insertion sort for small window N
+            for (size_t i = 1; i < m_count; ++i) {
+                T key = sorted[i];
+                int j = static_cast<int>(i) - 1;
+                while (j >= 0 && sorted[j] > key) {
+                    sorted[j + 1] = sorted[j];
+                    j--;
                 }
+                sorted[j + 1] = key;
             }
 
             return sorted[m_count / 2];
@@ -110,4 +76,5 @@ namespace Filters {
         size_t m_index;
         size_t m_count;
     };
-}
+
+} // namespace Filters
